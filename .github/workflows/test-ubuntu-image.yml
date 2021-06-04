@@ -25,7 +25,7 @@ jobs:
           ubuntu_distro: bionic 
       
     container: 
-      image: ubuntu-${{ matrix.ubuntu_distro }}
+      image: ubuntu:${{ matrix.ubuntu_distro }}
       
     # NOTES: We run 2 tests for robot_ws and simulation_ws
     # The test steps are duplicated because github workflow does not support reusable step (with parameter yet)
