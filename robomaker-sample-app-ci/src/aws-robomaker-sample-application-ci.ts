@@ -107,6 +107,7 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
 }
  async function setup() {
    try{
+    await exec.exec("scripts/setup.sh");
 
     await exec.exec("apt-key",["adv", "--fetch-keys", "http://packages.osrfoundation.org/gazebo.key"]);
     await exec.exec("apt-get", ["update"]);
@@ -117,7 +118,7 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     // then
     //   export TZ="US/Pacific"
     //   ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-      await exec.exec("scripts/setup.sh");
+      
       await loadROSEnvVariables();
 
     SAMPLE_APP_VERSION = await getSampleAppVersion();
