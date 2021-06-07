@@ -34,7 +34,7 @@ async function loadROSEnvVariables() {
     }
   };
 
-  await exec.exec("bash", ["-c", `source /opt/ros/${ROS_DISTRO}/setup.bash && printenv`], options)
+  await exec.exec("bash", ["-c", `sudo source /opt/ros/${ROS_DISTRO}/setup.bash && printenv`], options)
 }
 
 function getWorkingDirExecOptions(listenerBuffers?): ExecOptions {
