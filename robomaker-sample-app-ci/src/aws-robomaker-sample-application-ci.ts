@@ -108,7 +108,6 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
  async function setup() {
    try{
 
-
     if (!fs.existsSync("/etc/timezone")) {
       //default to US Pacific if timezone is not set.
       const timezone = "US/Pacific";
@@ -117,13 +116,11 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     }
     await exec.exec("scripts/setup.sh");
     await exec.exec("apt-get", ["update"]);
+    //zip required for prepare_sources step.
     await exec.exec("apt-get", ["install", "-y", "zip"]);
     SAMPLE_APP_VERSION = await getSampleAppVersion();
     console.log(`Sample App version found to be: ${SAMPLE_APP_VERSION}`);
 
-    // Update PACKAGES_TO_SKIP_TESTS with the new packages added by 'rosws update'.
-    // let packages = await fetchRosinstallDependencies();
-    // PACKAGES = packages.join(" ");
    } catch (error) {
     core.setFailed(error.message);
    }
@@ -150,11 +147,8 @@ async function prepare_sources() {
 
 async function build() {
   try {
-    //await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
-    //console.log(`Building the following packages: ${PACKAGES}`);
     loadROSEnvVariables();
     await exec.exec("scripts/build.sh", [WORKSPACE_DIRECTORY]);
-    //await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
   }
