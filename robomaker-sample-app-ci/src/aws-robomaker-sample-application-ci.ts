@@ -148,7 +148,7 @@ async function prepare_sources() {
 async function build() {
   try {
     loadROSEnvVariables();
-    await exec.exec("scripts/build.sh", [WORKSPACE_DIRECTORY]);
+    await exec.exec("bash", ["-c", "scripts/build.sh", WORKSPACE_DIRECTORY]);
   } catch (error) {
     core.setFailed(error.message);
   }
