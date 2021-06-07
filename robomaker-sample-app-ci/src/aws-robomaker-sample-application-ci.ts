@@ -114,7 +114,7 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     // then
     //   export TZ="US/Pacific"
     //   ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-      await exec.exec("bash", ["-c", `scripts/setup.sh`]);
+      await exec.exec("scripts/setup.sh");
       //let packages = await fetchRosinstallDependencies();
       //PACKAGES = packages.join(" ");
    } catch (error) {
