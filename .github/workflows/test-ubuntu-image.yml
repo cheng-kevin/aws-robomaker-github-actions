@@ -37,7 +37,7 @@ jobs:
         # Related issue: https://github.com/actions/checkout/issues/47
         # Note: rosbuild is the user of the docker image
         # TODO(ros-tooling/setup-ros-docker#7): 
-        sudo chown -R rosbuild:rosbuild "$HOME" .         
+        chown -R rosbuild:rosbuild "$HOME" .         
     # Checkout SA ros1 branch into default root folder
     - name: Checkout hello world sample app
       uses: actions/checkout@v2
