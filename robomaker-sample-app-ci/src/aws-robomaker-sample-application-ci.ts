@@ -109,7 +109,7 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
    try{
 
     await exec.exec("apt-key",["adv", "--fetch-keys", "http://packages.osrfoundation.org/gazebo.key"]);
-    await exec.exec("apt-get", "update");
+    await exec.exec("apt-get", ["update"]);
     await exec.exec("apt-get", ["install", "-y", "zip"]);
          //check if timezone is setup.exec
       //#timezone is required for ROS Installation.
