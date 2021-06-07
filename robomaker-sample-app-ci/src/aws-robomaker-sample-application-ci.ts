@@ -154,7 +154,7 @@ async function build() {
     //await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
     //console.log(`Building the following packages: ${PACKAGES}`);
     loadROSEnvVariables();
-    await exec.exec("scripts/build.sh", getWorkingDirExecOptions() );
+    await exec.exec("scripts/build.sh", [], getWorkingDirExecOptions() );
     //await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
