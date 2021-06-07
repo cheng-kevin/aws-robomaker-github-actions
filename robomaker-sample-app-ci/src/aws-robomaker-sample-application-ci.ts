@@ -111,10 +111,9 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
 
     if (!fs.existsSync("/etc/timezone")) {
       //default to US Pacific if timezone is not set.
-      await exec.exec("export" , ["TZ=US/Pacific"]);
-      await exec.exec("ln", ["-snf", "/usr/share/zoneinfo/$TZ" ,"/etc/localtime"]);
-      await exec.exec("echo" , ["$TZ > /etc/timezone"]);
-
+      const timezone = "US/Pacific";
+      await exec.exec("ln", ["-snf", `/usr/share/zoneinfo/${timezone}` ,"/etc/localtime"]);
+      await exec.exec("echo" , [`${timezone} > /etc/timezone`]);
     }
     await exec.exec("scripts/setup.sh");
     await exec.exec("apt-get", ["update"]);
@@ -154,7 +153,7 @@ async function build() {
     //await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
     //console.log(`Building the following packages: ${PACKAGES}`);
     loadROSEnvVariables();
-    await exec.exec("scripts/build.sh", [], getWorkingDirExecOptions() );
+    await exec.exec("scripts/build.sh", [WORKSPACE_DIRECTORY]);
     //await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
