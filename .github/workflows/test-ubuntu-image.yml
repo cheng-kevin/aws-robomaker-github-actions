@@ -31,13 +31,6 @@ jobs:
     # The test steps are duplicated because github workflow does not support reusable step (with parameter yet)
     # We also can use matrix to run tests with different parameters but it is overkill for this
     steps:    
-    # - name: Setup permissions
-    #   run: |
-    #     # Due to user permisson issue, calling chown is necessary for now
-    #     # Related issue: https://github.com/actions/checkout/issues/47
-    #     # Note: rosbuild is the user of the docker image
-    #     # TODO(ros-tooling/setup-ros-docker#7): 
-    #     chown -R rosbuild:rosbuild "$HOME" .         
     # Checkout SA ros1 branch into default root folder
     - name: Checkout hello world sample app
       uses: actions/checkout@v2
@@ -59,7 +52,6 @@ jobs:
     - name: Build test script
       run: npm run build
       working-directory: ./action/robomaker-sample-app-ci
-      
     # Trigger to run robomaker-sample-app-ci action script
     - name: Build and bundle robot_ws      
       uses: ./action/robomaker-sample-app-ci
