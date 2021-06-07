@@ -34,7 +34,7 @@ async function loadROSEnvVariables() {
     }
   };
 
-  await exec.exec("bash", ["-c", `sudo source /opt/ros/${ROS_DISTRO}/setup.bash && printenv`], options)
+  await exec.exec("bash", ["-c", `source /opt/ros/${ROS_DISTRO}/setup.bash && printenv`], options)
 }
 
 function getWorkingDirExecOptions(listenerBuffers?): ExecOptions {
@@ -114,7 +114,7 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     // then
     //   export TZ="US/Pacific"
     //   ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-      await exec.exec("bash", ["-c", `source scripts/setup.sh`]);
+      await exec.exec("bash", ["-c", `sudo source scripts/setup.sh`]);
       let packages = await fetchRosinstallDependencies();
       PACKAGES = packages.join(" ");
    } catch (error) {
