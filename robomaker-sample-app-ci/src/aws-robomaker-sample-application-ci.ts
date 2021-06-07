@@ -109,23 +109,22 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
    try{
 
 
-    if (fs.existsSync("/etc/timezone")) {
+    if (!fs.existsSync("/etc/timezone")) {
       //default to US Pacific if timezone is not set.
       await exec.exec("export" , ["TZ=US/Pacific"]);
       await exec.exec("ln", ["-snf", "/usr/share/zoneinfo/$TZ" ,"/etc/localtime"]);
       await exec.exec("echo" , ["$TZ > /etc/timezone"]);
-      await exec.exec("scripts/setup.sh");
-    }
 
+    }
+    await exec.exec("scripts/setup.sh");
     await exec.exec("apt-get", ["update"]);
     await exec.exec("apt-get", ["install", "-y", "zip"]);
-    await loadROSEnvVariables();
     SAMPLE_APP_VERSION = await getSampleAppVersion();
     console.log(`Sample App version found to be: ${SAMPLE_APP_VERSION}`);
 
     // Update PACKAGES_TO_SKIP_TESTS with the new packages added by 'rosws update'.
-    let packages = await fetchRosinstallDependencies();
-    PACKAGES = packages.join(" ");
+    // let packages = await fetchRosinstallDependencies();
+    // PACKAGES = packages.join(" ");
    } catch (error) {
     core.setFailed(error.message);
    }
@@ -152,10 +151,11 @@ async function prepare_sources() {
 
 async function build() {
   try {
-    await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
-    console.log(`Building the following packages: ${PACKAGES}`);
+    //await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
+    //console.log(`Building the following packages: ${PACKAGES}`);
     loadROSEnvVariables();
-    await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
+    await exec.exec("scripts/build.sh", getWorkingDirExecOptions() );
+    //await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
   }
