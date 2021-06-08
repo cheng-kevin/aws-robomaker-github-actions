@@ -111,10 +111,10 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     if (!fs.existsSync("/etc/timezone")) {
       //default to US Pacific if timezone is not set.
       const timezone = "US/Pacific";
-      await exec.exec("ln", ["-snf", `/usr/share/zoneinfo/${timezone}` ,"/etc/localtime"]);
-      await exec.exec("echo" , [`${timezone} > /etc/timezone`]);
+      await exec.exec("bash", ["-c", "ln", "-snf", `/usr/share/zoneinfo/${timezone}` ,"/etc/localtime"]);
+      await exec.exec("bash" , [`-c echo ${timezone} > /etc/timezone`]);
     }
-    await exec.exec("scripts/setup.sh");
+    await exec.exec("bash", ["-c", "scripts/setup.sh"]);
     loadROSEnvVariables();
     await exec.exec("apt-get", ["update"]);
     //zip required for prepare_sources step.
@@ -122,6 +122,8 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     SAMPLE_APP_VERSION = await getSampleAppVersion();
     console.log(`Sample App version found to be: ${SAMPLE_APP_VERSION}`);
 
+    let packages = await fetchRosinstallDependencies();
+    PACKAGES = packages.join(" ");
    } catch (error) {
     core.setFailed(error.message);
    }
@@ -149,7 +151,6 @@ async function prepare_sources() {
 async function build() {
   try {
     await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
-    //await exec.exec(["-c", "scripts/build.sh", WORKSPACE_DIRECTORY]);
     await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
