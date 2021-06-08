@@ -111,8 +111,8 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
     if (!fs.existsSync("/etc/timezone")) {
       //default to US Pacific if timezone is not set.
       const timezone = "US/Pacific";
-      await exec.exec("bash", ["-c", "ln", "-snf", `/usr/share/zoneinfo/${timezone}` ,"/etc/localtime"]);
-      await exec.exec("bash" , [`-c echo ${timezone} > /etc/timezone`]);
+      await exec.exec("bash", ["-c", `ln -snf /usr/share/zoneinfo/${timezone} /etc/localtime`]);
+      await exec.exec("bash" , ["-c", `echo ${timezone} > /etc/timezone`]);
     }
     await exec.exec("bash", ["-c", "scripts/setup.sh"]);
     loadROSEnvVariables();
