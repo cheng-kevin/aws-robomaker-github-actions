@@ -69,7 +69,7 @@ async function getSampleAppVersion() : Promise<string> {
   try {
     await exec.exec("bash", [
         "-c",
-         "find ../robot_ws -name package.xml -exec grep -Po '(?<=<version>)[^\\s<>]*(?=</version>)' {} +"],
+         "find ../robot_ws -name hello_world_robot/package.xml -exec grep -Po '(?<=<version>)[^\\s<>]*(?=</version>)' {} +"],
       getWorkingDirExecOptions(grepAfter));
     version = grepAfter.stdout.trim();
   } catch(error) {
@@ -149,7 +149,6 @@ async function prepare_sources() {
 
 async function build() {
   try {
-    //await exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
     await exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
   } catch (error) {
     core.setFailed(error.message);
