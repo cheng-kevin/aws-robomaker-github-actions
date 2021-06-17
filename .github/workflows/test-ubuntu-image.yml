@@ -18,8 +18,10 @@ jobs:
     strategy:      
       matrix:
         distro: ['melodic']
+        gazebo: [9]
         include:
         - distro: melodic
+          gazebo: 9
           ubuntu_distro: bionic 
       
     container: 
