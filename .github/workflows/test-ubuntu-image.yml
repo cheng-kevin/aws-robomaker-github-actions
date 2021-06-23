@@ -17,12 +17,12 @@ jobs:
     
     strategy:      
       matrix:
-        distro: ['melodic']
-        gazebo: [9]
+        distro: ['foxy']
+        gazebo: [11]
         include:
-        - distro: melodic
-          gazebo: 9
-          ubuntu_distro: bionic 
+        - distro: foxy
+          gazebo: 11
+          ubuntu_distro: focal 
       
     container: 
       image: ubuntu:${{ matrix.ubuntu_distro }}
