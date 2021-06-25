@@ -91,14 +91,14 @@ async function fetchRosinstallDependencies(): Promise<string[]> {
         await exec.exec("vcs", ["import", "--input", ".rosinstall"], {cwd: workspace});
       }
     }
-    // this is outside the loop as we don't want to build both the dependency packages
-    if (fs.existsSync(path.join(WORKSPACE_DIRECTORY, '.rosinstall'))) {
-      await exec.exec("colcon", ["list", "--names-only"], getWorkingDirExecOptions(colconListAfter));
-      const packagesAfter = colconListAfter.stdout.split("\n");
-      packagesAfter.forEach(packageName => {
-        packages.push(packageName.trim());
-      });
-    }
+    // // this is outside the loop as we don't want to build both the dependency packages
+    // if (fs.existsSync(path.join(WORKSPACE_DIRECTORY, '.rosinstall'))) {
+    //   await exec.exec("colcon", ["list", "--names-only"], getWorkingDirExecOptions(colconListAfter));
+    //   const packagesAfter = colconListAfter.stdout.split("\n");
+    //   packagesAfter.forEach(packageName => {
+    //     packages.push(packageName.trim());
+    //   });
+    // }
   } catch(error) {
     core.setFailed(error.message);
   }
