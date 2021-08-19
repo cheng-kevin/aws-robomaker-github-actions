@@ -727,15 +727,13 @@ const core = __importStar(__webpack_require__(470));
 const exec = __importStar(__webpack_require__(986));
 const fs = __webpack_require__(747);
 const ROS_DISTRO = core.getInput('ros-distro', { required: true });
-let GAZEBO_VERSION = core.getInput('gazebo-version');
 let SAMPLE_APP_VERSION = '';
 const WORKSPACE_DIRECTORY = core.getInput('workspace-dir');
 const GENERATE_SOURCES = core.getInput('generate-sources');
-let PACKAGES = "none";
 const ROS_ENV_VARIABLES = {};
-const COLCON_BUNDLE_RETRIES = Number.parseInt(core.getInput('colcon-bundle-retries'), 10);
-const MINIMUM_BACKOFF_TIME_SECONDS = 32; // delay for the first retry in seconds
-const MAXIMUM_BACKOFF_TIME_SECONDS = 128; // maximum delay for a retry in seconds
+const RETRIES = Number.parseInt(core.getInput('retries'), 10);
+const MINIMUM_BACKOFF_TIME_SECONDS = 64; // delay for the first retry in seconds
+const MAXIMUM_BACKOFF_TIME_SECONDS = 2048; // maximum delay for a retry in seconds
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -785,210 +783,110 @@ function getSampleAppVersion() {
     return __awaiter(this, void 0, void 0, function* () {
         let grepAfter = { stdout: '', stderr: '' };
         let version = '';
-        try {
-            yield exec.exec("bash", [
-                "-c",
-                "find ../robot_ws -name package.xml -exec grep -Po '(?<=<version>)[^\\s<>]*(?=</version>)' {} +"
-            ], getWorkingDirExecOptions(grepAfter));
-            version = grepAfter.stdout.trim();
-        }
-        catch (error) {
-            core.setFailed(error.message);
-        }
+        yield exec.exec("bash", [
+            "-c",
+            "find ../robot_ws -name package.xml -not -path '../robot_ws/src/deps/*' -exec grep -Po '(?<=<version>)[^\\s<>]*(?=</version>)' {} +"
+        ], getWorkingDirExecOptions(grepAfter));
+        version = grepAfter.stdout.trim();
         return Promise.resolve(version);
     });
 }
-// If .rosinstall exists, run 'vcs import' and return a list of names of the packages that were added in both workspaces.
+// If .rosinstall exists, run 'vcs import'
 function fetchRosinstallDependencies() {
     return __awaiter(this, void 0, void 0, function* () {
-        let colconListAfter = { stdout: '', stderr: '' };
-        let packages = [];
         // Download dependencies not in apt if .rosinstall exists
-        try {
-            // When generate-sources: true, the expected behavior is to include sources from both workspaces including their dependencies. 
-            // In order to make generate-sources work as expected, dependencies are fetched in both the workspaces here.
-            for (let workspace of ["robot_ws", "simulation_ws"]) {
-                if (fs.existsSync(path.join(workspace, '.rosinstall'))) {
-                    yield exec.exec("vcs", ["import", "--input", ".rosinstall"], { cwd: workspace });
-                }
-            }
-            // this is outside the loop as we don't want to build both the dependency packages
-            if (fs.existsSync(path.join(WORKSPACE_DIRECTORY, '.rosinstall'))) {
-                yield exec.exec("colcon", ["list", "--names-only"], getWorkingDirExecOptions(colconListAfter));
-                const packagesAfter = colconListAfter.stdout.split("\n");
-                packagesAfter.forEach(packageName => {
-                    packages.push(packageName.trim());
-                });
+        // When generate-sources: true, the expected behavior is to include sources from both workspaces including their dependencies. 
+        // In order to make generate-sources work as expected, dependencies are fetched in both the workspaces here.
+        for (let workspace of ["robot_ws", "simulation_ws"]) {
+            if (fs.existsSync(path.join(workspace, '.rosinstall'))) {
+                yield exec.exec("vcs", ["import", "--input", ".rosinstall"], { cwd: workspace });
             }
         }
-        catch (error) {
-            core.setFailed(error.message);
-        }
-        return Promise.resolve(packages);
     });
 }
 function setup() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            yield exec.exec("sudo", ["apt-key", "adv", "--fetch-keys", "http://packages.osrfoundation.org/gazebo.key"]);
-            let aptPackages = [
-                "zip",
-                "cmake",
-                "lcov",
-                "libgtest-dev",
-                "python3-colcon-common-extensions",
-                "python3-apt",
-                "python3-pip",
-                (ROS_DISTRO == "foxy") ? "python3-rosinstall" : "python-rosinstall",
-            ];
-            if (ROS_DISTRO != "foxy") {
-                //focal (foxy) does not ship with python2 and does not require python-pip
-                //using the ros_distro instead of ubuntu_distro saves users from specifying another 
-                //essentially redundant parameter.
-                aptPackages = aptPackages.concat(["python-pip"]);
-            }
-            const python3Packages = [
-                "setuptools",
-                "colcon-bundle",
-                "colcon-ros-bundle"
-            ];
-            yield exec.exec("sudo", ["apt-get", "update"]);
-            yield exec.exec("sudo", ["apt-get", "install", "-y"].concat(aptPackages));
-            yield exec.exec("sudo", ["pip3", "install", "-U"].concat(python3Packages));
-            yield exec.exec("rosdep", ["update"]);
-            yield loadROSEnvVariables();
-            SAMPLE_APP_VERSION = yield getSampleAppVersion();
-            console.log(`Sample App version found to be: ${SAMPLE_APP_VERSION}`);
-            // Update PACKAGES_TO_SKIP_TESTS with the new packages added by 'rosws update'.
-            let packages = yield fetchRosinstallDependencies();
-            PACKAGES = packages.join(" ");
+        if (!fs.existsSync("/etc/timezone")) {
+            //default to US Pacific if timezone is not set.
+            const timezone = "US/Pacific";
+            yield exec.exec("bash", ["-c", `ln -snf /usr/share/zoneinfo/${timezone} /etc/localtime`]);
+            yield exec.exec("bash", ["-c", `echo ${timezone} > /etc/timezone`]);
         }
-        catch (error) {
-            core.setFailed(error.message);
-        }
-    });
-}
-function setup_gazebo_source() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const gazebo_apt_file = "/etc/apt/sources.list.d/gazebo-stable.list";
-            yield exec.exec("sudo", ["rm", "-f", gazebo_apt_file]);
-            yield exec.exec("bash", ["-c", `echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable \`lsb_release -cs\` main" | sudo tee ${gazebo_apt_file}`]);
-            yield exec.exec("sudo", ["apt-get", "update"]);
-            if (ROS_DISTRO == "kinetic") {
-                const gazebo9_rosdep_file = "/etc/ros/rosdep/sources.list.d/00-gazebo9.list";
-                yield exec.exec("sudo", ["rm", "-f", gazebo9_rosdep_file]);
-                yield exec.exec("bash", ["-c", `echo "yaml https://github.com/osrf/osrf-rosdep/raw/master/gazebo9/gazebo.yaml" | sudo tee -a ${gazebo9_rosdep_file}`]);
-                yield exec.exec("bash", ["-c", `echo "yaml https://github.com/osrf/osrf-rosdep/raw/master/gazebo9/releases/indigo.yaml indigo" | sudo tee -a ${gazebo9_rosdep_file}`]);
-                yield exec.exec("bash", ["-c", `echo "yaml https://github.com/osrf/osrf-rosdep/raw/master/gazebo9/releases/jade.yaml jade" | sudo tee -a ${gazebo9_rosdep_file}`]);
-                yield exec.exec("bash", ["-c", `echo "yaml https://github.com/osrf/osrf-rosdep/raw/master/gazebo9/releases/kinetic.yaml kinetic" | sudo tee -a ${gazebo9_rosdep_file}`]);
-                yield exec.exec("bash", ["-c", `echo "yaml https://github.com/osrf/osrf-rosdep/raw/master/gazebo9/releases/lunar.yaml lunar" | sudo tee -a ${gazebo9_rosdep_file}`]);
-                yield exec.exec("rosdep", ["update"]);
-            }
-        }
-        catch (error) {
-            core.setFailed(error.message);
-        }
+        yield exec.exec("bash", ["-c", `scripts/setup.sh --install-ros ${ROS_DISTRO}`]);
+        yield loadROSEnvVariables();
+        yield exec.exec("apt-get", ["update"]);
+        //zip required for prepare_sources step.
+        yield exec.exec("apt-get", ["install", "-y", "zip"]);
+        SAMPLE_APP_VERSION = yield getSampleAppVersion();
+        console.log(`Sample App version found to be: ${SAMPLE_APP_VERSION}`);
+        yield fetchRosinstallDependencies();
     });
 }
 function prepare_sources() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const sourceIncludes = [
-                "robot_ws",
-                "simulation_ws",
-                "LICENSE*",
-                "NOTICE*",
-                "README*",
-                "roboMakerSettings.json"
-            ];
-            const sourceIncludesStr = sourceIncludes.join(" ");
-            yield exec.exec("bash", ["-c", `zip -r sources.zip ${sourceIncludesStr}`], getWorkingDirParentExecOptions());
-            yield exec.exec("bash", ["-c", `tar cvzf sources.tar.gz ${sourceIncludesStr}`], getWorkingDirParentExecOptions());
-        }
-        catch (error) {
-            core.setFailed(error.message);
-        }
+        const sourceIncludes = [
+            "robot_ws",
+            "simulation_ws",
+            "scripts",
+            "LICENSE*",
+            "NOTICE*",
+            "README*",
+            "roboMakerSettings.json"
+        ];
+        const sourceIncludesStr = sourceIncludes.join(" ");
+        yield exec.exec("bash", ["-c", `zip -r sources.zip ${sourceIncludesStr}`], getWorkingDirParentExecOptions());
+        yield exec.exec("bash", ["-c", `tar cvzf sources.tar.gz ${sourceIncludesStr}`], getWorkingDirParentExecOptions());
     });
 }
 function build() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            yield exec.exec("rosdep", ["install", "--from-paths", ".", "--ignore-src", "-r", "-y", "--rosdistro", ROS_DISTRO], getWorkingDirExecOptions());
-            console.log(`Building the following packages: ${PACKAGES}`);
-            yield exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
-        }
-        catch (error) {
-            core.setFailed(error.message);
-        }
+        yield exec.exec("colcon", ["build", "--build-base", "build", "--install-base", "install"], getWorkingDirExecOptions());
     });
 }
 function bundle() {
     return __awaiter(this, void 0, void 0, function* () {
-        let delay_ms = 1000 * MINIMUM_BACKOFF_TIME_SECONDS;
-        // indexed from 0 because COLCON_BUNDLE_RETRIES is the number of retries AFTER the initial try
-        for (let i = 0; i <= COLCON_BUNDLE_RETRIES; i++) {
-            try {
-                const bundleFilename = path.basename(WORKSPACE_DIRECTORY);
-                yield exec.exec("colcon", ["bundle", "--build-base", "build", "--install-base", "install", "--bundle-base", "bundle"], getWorkingDirExecOptions());
-                yield exec.exec("mv", ["bundle/output.tar", `../${bundleFilename}.tar`], getWorkingDirExecOptions());
-                yield exec.exec("rm", ["-rf", "bundle"], getWorkingDirExecOptions()); // github actions have been failing with no disk space
-                break; // break if colcon bundle passes
-            }
-            catch (error) {
-                yield exec.exec("rm", ["-rf", "bundle"], getWorkingDirExecOptions()); // remove erred bundle assets
-                if (i == COLCON_BUNDLE_RETRIES) {
-                    core.setFailed(error.message); // set action to Failed if the colcon bundle fails even after COLCON_BUNDLE_RETRIES number of retries
-                    break;
-                }
-                console.log(`Colcon bundle failed.. retrying in ${delay_ms} milliseconds`);
-                yield delay(delay_ms); // wait for next retry per the current exponential backoff delay
-                delay_ms = Math.min(delay_ms * 2, MAXIMUM_BACKOFF_TIME_SECONDS); // double the delay for the next retry, truncate if required
-            }
-        }
+        // indexed from 0 because RETRIES is the number of retries AFTER the initial try
+        const bundleFilename = path.basename(WORKSPACE_DIRECTORY);
+        yield exec.exec("colcon", ["bundle", "--build-base", "build", "--install-base", "install", "--bundle-base", "bundle"], getWorkingDirExecOptions());
+        yield exec.exec("mv", ["bundle/output.tar", `../${bundleFilename}.tar`], getWorkingDirExecOptions());
+        yield exec.exec("rm", ["-rf", "bundle"], getWorkingDirExecOptions()); // github actions have been failing with no disk space
     });
 }
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        let delay_ms = 1000 * MINIMUM_BACKOFF_TIME_SECONDS;
         console.log(`ROS_DISTRO: ${ROS_DISTRO}`);
-        console.log(`GAZEBO_VERSION: ${GAZEBO_VERSION}`);
         console.log(`WORKSPACE_DIRECTORY: ${WORKSPACE_DIRECTORY}`);
         console.log(`GENERATE_SOURCES: ${GENERATE_SOURCES}`);
-        console.log(`COLCON_BUNDLE_RETRIES: ${COLCON_BUNDLE_RETRIES}`);
-        // check if COLCON_BUNDLE_RETRIES is valid (i.e. 0<) and not too large (i.e. <10)  
-        if (COLCON_BUNDLE_RETRIES < 0 || 9 < COLCON_BUNDLE_RETRIES) {
+        console.log(`RETRIES: ${RETRIES}`);
+        // check if RETRIES is valid (i.e. 0<) and not too large (i.e. <10)  
+        if (RETRIES < 0 || 9 < RETRIES) {
             core.setFailed(`Invalid number of colcon bundle retries. Must be between 0-9 inclusive`);
         }
-        yield setup();
-        if (ROS_DISTRO == "kinetic" && (GAZEBO_VERSION == "" || GAZEBO_VERSION == "7")) {
-            GAZEBO_VERSION = "7";
+        for (let i = 0; i <= RETRIES; i++) {
+            try {
+                yield setup();
+                if (GENERATE_SOURCES == 'true') {
+                    yield prepare_sources();
+                }
+                yield build();
+                yield bundle();
+                core.setOutput('ros-distro', ROS_DISTRO);
+                core.setOutput('sample-app-version', SAMPLE_APP_VERSION);
+                break; //Break out of retry loop if successful.
+            }
+            catch (error) {
+                yield exec.exec("rm", ["-rf", "bundle"], getWorkingDirExecOptions()); // remove erred bundle assets
+                if (i == RETRIES) {
+                    core.setFailed(error.message); // set action to Failed if the colcon bundle fails even after RETRIES number of retries
+                    break;
+                }
+                console.log(`Colcon bundle failed.. retrying in ${delay_ms} milliseconds`);
+                yield delay(delay_ms); // wait for next retry per the current exponential backoff delay
+                delay_ms = Math.min(delay_ms * 2, 1000 * MAXIMUM_BACKOFF_TIME_SECONDS); // double the delay for the next retry, truncate if required
+                core.setFailed(error.message);
+            }
         }
-        else if (ROS_DISTRO == "kinetic" && GAZEBO_VERSION == "9") {
-            yield setup_gazebo_source();
-        }
-        else if (ROS_DISTRO == "melodic" && (GAZEBO_VERSION == "" || GAZEBO_VERSION == "9")) {
-            GAZEBO_VERSION = "9";
-            yield setup_gazebo_source();
-        }
-        else if (ROS_DISTRO == "dashing" && (GAZEBO_VERSION == "" || GAZEBO_VERSION == "9")) {
-            GAZEBO_VERSION = "9";
-            yield setup_gazebo_source();
-        }
-        else if (ROS_DISTRO == "foxy" && (GAZEBO_VERSION == "" || GAZEBO_VERSION == "11")) {
-            GAZEBO_VERSION = "11";
-            yield setup_gazebo_source();
-        }
-        else {
-            core.setFailed(`Invalid ROS and Gazebo combination`);
-        }
-        if (GENERATE_SOURCES == 'true') {
-            yield prepare_sources();
-        }
-        yield build();
-        yield bundle();
-        core.setOutput('ros-distro', ROS_DISTRO);
-        core.setOutput('gazebo-version', "gazebo" + GAZEBO_VERSION);
-        core.setOutput('sample-app-version', SAMPLE_APP_VERSION);
     });
 }
 run();
